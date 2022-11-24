@@ -6,177 +6,210 @@ import {
   TextField, 
   Select, 
   MenuItem, 
-  InputLabel,
   Button, 
 } from '@mui/material';
 import React, {useState, useEffect, useReducer} from 'react';
 import ReactDOM from 'react-dom/client';
 import './options.css';
 
+class MyRule implements chrome.declarativeNetRequest.Rule {
+  action!: chrome.declarativeNetRequest.RuleAction;
+  condition!: chrome.declarativeNetRequest.RuleCondition;
+  id!: number;
+  priority?: number | undefined;
+  redirectType?: RedirectType | undefined;
+}
+
+type RedirectType = 'URL' | 'REGEXSUBSTITUTION' | 'EXTENSIONPATH';
+
 type Action = 
   {
-    target: "ALL";
-    rules: chrome.declarativeNetRequest.Rule[];
+    target: 'ALL';
+    rules: MyRule[];
   } |
   {
-    target: "ADDEMPTY";
+    target: 'ADDEMPTY';
   } |
   {
     id: number;
-    target: "PRIORITY";
+    target: 'PRIORITY';
     priority: number;
   } |
   {
     id: number;
-    target: "ACTIONTYPE";
+    target: 'REDIRECTTYPE';
+    redirectType: RedirectType;
+  } |
+  {
+    id: number;
+    target: 'ACTIONTYPE';
     actionType: chrome.declarativeNetRequest.RuleActionType;
   } |
   {
     id: number;
-    target: "EXTENSIONPATH";
+    target: 'EXTENSIONPATH';
     extensionPath: string;
   } |
   {
     id: number;
-    target: "REGEXSUBSTITUTION";
+    target: 'REGEXSUBSTITUTION';
     regexSubstitution: string;
   } |
   {
     id: number;
-    target: "URL";
+    target: 'URL';
     url: string;
   } |
   {
     id: number;
-    target: "DOMAINTYPE";
+    target: 'DOMAINTYPE';
     domainType: chrome.declarativeNetRequest.DomainType;
   } |
   {
     id: number;
-    target: "INITIATORDOMAINS";
+    target: 'INITIATORDOMAINS';
     initiatorDomains: string[];
   } |
   {
     id: number;
-    target: "EXCLUDEDINITIATORDOMAINS";
+    target: 'EXCLUDEDINITIATORDOMAINS';
     excludedInitiatorDomains: string[];
   } |
   {
     id: number;
-    target: "REQUESTDOMAINS";
+    target: 'REQUESTDOMAINS';
     requestDomains: string[];
   } |
   {
     id: number;
-    target: "EXCLUDEDREQUESTDOMAINS";
+    target: 'EXCLUDEDREQUESTDOMAINS';
     excludedRequestDomains: string[];
   } |
   {
     id: number;
-    target: "REQUESTMETHODS";
+    target: 'REQUESTMETHODS';
     requestMethods: chrome.declarativeNetRequest.RequestMethod[];
   } |
   {
     id: number;
-    target: "EXCLUDEDREQUESTMETHODS";
+    target: 'EXCLUDEDREQUESTMETHODS';
     excludedRequestMethods: chrome.declarativeNetRequest.RequestMethod[];
   } |
   {
     id: number;
-    target: "RESOURCETYPES";
+    target: 'RESOURCETYPES';
     resourceTypes: chrome.declarativeNetRequest.ResourceType[];
   } |
   {
     id: number;
-    target: "EXCLUDEDRESOURCETYPES";
+    target: 'EXCLUDEDRESOURCETYPES';
     excludedResourceTypes: chrome.declarativeNetRequest.ResourceType[];
   } |
   {
     id: number;
-    target: "REGEXFILTER";
+    target: 'REGEXFILTER';
     regexFilter: string;
   } |
   {
     id: number;
-    target: "URLFILTER";
+    target: 'URLFILTER';
     urlFilter: string;
   } 
 ;
 
-const initialState: chrome.declarativeNetRequest.Rule[] = [];
+const initialState: MyRule[] = [];
 
-const reducer = (state: chrome.declarativeNetRequest.Rule[], act: Action) => {
+const reducer = (state: MyRule[], act: Action) => {
   switch (act.target) {
-    case "ALL":
+    case 'ALL':
       return act.rules;
-    case "ADDEMPTY":
+    case 'ADDEMPTY':
       return [...state, {
         id: state.length == 0 ? 1 : state.slice(-1)[0].id + 1,
         priority: 1,
-        action: {type: chrome.declarativeNetRequest.RuleActionType.REDIRECT},
+        action: {type: chrome.declarativeNetRequest.RuleActionType.BLOCK},
         condition: {}
       }];
-    case "PRIORITY":
+    case 'REDIRECTTYPE':
+      return state.map((rule) => (
+        rule.id == act.id ? {
+          ...rule, 
+          redirectType: act.redirectType, 
+          action: {...(rule.action), redirect: {
+            ...(rule.action.redirect), 
+            url: act.redirectType == 'URL' as RedirectType ? (rule.action.redirect?.url ?? '') : undefined,
+            regexSubstitution: act.redirectType == 'REGEXSUBSTITUTION' as RedirectType ? (rule.action.redirect?.regexSubstitution ?? '') : undefined,
+            extensionPath: act.redirectType == 'EXTENSIONPATH' as RedirectType ? (rule.action.redirect?.extensionPath ?? '') : undefined,
+          }}} : rule
+      ));
+    case 'PRIORITY':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, priority: act.priority} : rule
       ));
-    case "ACTIONTYPE":
+    case 'ACTIONTYPE':
       return state.map((rule) => (
-        rule.id == act.id ? {...rule, action: {...(rule.action), type: act.actionType}} : rule
+        rule.id == act.id ? {
+          ...rule, 
+          action: {...(rule.action), type: act.actionType, redirect: {
+            ...(rule.action.redirect), 
+            url: act.actionType == chrome.declarativeNetRequest.RuleActionType.REDIRECT ? (rule.action.redirect?.url ?? '') : undefined
+          }}, 
+          redirectType: act.actionType == chrome.declarativeNetRequest.RuleActionType.REDIRECT ? (rule.redirectType ?? 'URL' as RedirectType) : undefined
+        } : rule
       ));
-    case "EXTENSIONPATH":
+    case 'EXTENSIONPATH':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), extensionPath: act.extensionPath}}} : rule
       ));
-    case "REGEXSUBSTITUTION":
+    case 'REGEXSUBSTITUTION':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), regexSubstitution: act.regexSubstitution}}} : rule
       ));
-    case "URL":
+    case 'URL':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), url: act.url}}} : rule
       ));
-    case "DOMAINTYPE":
+    case 'DOMAINTYPE':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), domainType: act.domainType}} : rule
       ));
-    case "INITIATORDOMAINS":
+    case 'INITIATORDOMAINS':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), initiatorDomains: act.initiatorDomains}} : rule
       ));
-    case "EXCLUDEDINITIATORDOMAINS":
+    case 'EXCLUDEDINITIATORDOMAINS':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedInitiatorDomains: act.excludedInitiatorDomains}} : rule
       ));
-    case "REQUESTDOMAINS":
+    case 'REQUESTDOMAINS':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), requestDomains: act.requestDomains}} : rule
       ));
-    case "EXCLUDEDREQUESTDOMAINS":
+    case 'EXCLUDEDREQUESTDOMAINS':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedRequestDomains: act.excludedRequestDomains}} : rule
       ));
-    case "REQUESTMETHODS":
+    case 'REQUESTMETHODS':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), requestMethods: act.requestMethods}} : rule
       ));
-    case "EXCLUDEDREQUESTMETHODS":
+    case 'EXCLUDEDREQUESTMETHODS':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedRequestMethods: act.excludedRequestMethods}} : rule
       ));
-    case "RESOURCETYPES":
+    case 'RESOURCETYPES':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), resourceTypes: act.resourceTypes}} : rule
       ));
-    case "EXCLUDEDRESOURCETYPES":
+    case 'EXCLUDEDRESOURCETYPES':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedResourceTypes: act.excludedResourceTypes}} : rule
       ));
-    case "REGEXFILTER":
+    case 'REGEXFILTER':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), regexFilter: act.regexFilter}} : rule
       ));
-    case "URLFILTER":
+    case 'URLFILTER':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, condition: {...(rule.condition), urlFilter: act.urlFilter}} : rule
       ));
@@ -187,14 +220,14 @@ const reducer = (state: chrome.declarativeNetRequest.Rule[], act: Action) => {
 
 const Main = () => {
   // action, condition, id, priority?
-  // const [ruleState, setRuleState] = useState<chrome.declarativeNetRequest.Rule[]>([]);
+  // const [ruleState, setRuleState] = useState<MyRule[]>([]);
   const [ruleState, dispatch] = useReducer(reducer, initialState);
-  const [status, setStatus] = useState<string>("");
+  const [status, setStatus] = useState<string>('');
 
   useEffect(() => {
     chrome.declarativeNetRequest.getDynamicRules(rules => {
       // Set state
-      dispatch({target: "ALL", rules: rules});
+      dispatch({target: 'ALL', rules: rules});
     });
   }, []);
 
@@ -208,7 +241,7 @@ const Main = () => {
         if (chrome.runtime.lastError) {
           setStatus(chrome.runtime.lastError.message!);
         } else {
-          setStatus("Rules updated.");
+          setStatus('Rules updated.');
         }
       }
     );
@@ -222,69 +255,88 @@ const Main = () => {
             key={index}
             sx={{
               p: 2,
-              m: 2,
               border: 1,
               borderColor: 'silver'
             }}
           >
             <Grid container
-              direction="column"
+              direction='column'
               gap={2}
               sx={{
                 pl: 2,
               }}
             >
+              {/* id */}
               <Grid item>
                 <Typography
-                  component="h2"
-                  variant="h5"
+                  component='h2'
+                  variant='h5'
                 >
                   id: {rule.id}
                 </Typography>
               </Grid>
-              <Grid item>
-                <TextField
-                  label="priority"
-                  type="number"
-                  value={rule.priority}
-                  InputProps={{inputProps: {min: 1}}}
-                  InputLabelProps={{shrink: true}}
-                  onChange={(event) => 
-                    dispatch({
-                      id: rule.id, 
-                      target: "PRIORITY", 
-                      priority: Number(event.target.value) < 1 ? 1 : parseInt(event.target.value)
-                    })
-                  }
-                />
-              </Grid>
+              {/* priority */}
               <Grid item>
                 <Grid container
-                  direction="row"
-                  alignItems="center"
+                  direction='row'
+                  alignItems='center'
                   gap={2}
                 >
-                  <Grid item>
+                  <Grid item xs={2}>
                     <Typography
-                      component="h2"
-                      variant="h5"
+                      component='h2'
+                      variant='h5'
+                    >
+                      priority
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={2}>
+                    <TextField
+                      type='number'
+                      value={rule.priority}
+                      InputProps={{inputProps: {min: 1}}}
+                      onChange={(event) => 
+                        dispatch({
+                          id: rule.id, 
+                          target: 'PRIORITY', 
+                          priority: parseInt(event.target.value) < 1 ? 1 : parseInt(event.target.value)
+                        })
+                      }
+                    />
+                  </Grid>
+                </Grid>
+              </Grid>
+              {/* action */}
+              <Grid item>
+                <Grid container
+                  direction='row'
+                  alignItems='center'
+                  gap={2}
+                >
+                  <Grid item xs={2}>
+                    <Typography
+                      component='h2'
+                      variant='h5'
                     >
                       action
                     </Typography>
                   </Grid>
-                  <Grid item>
-                    <InputLabel
-                      id='type'
+                  {/* type */}
+                  <Grid item xs={2}>
+                    <Typography
+                      component='h2'
+                      variant='h5'
                     >
                       type
-                    </InputLabel>
+                    </Typography>
+                  </Grid>
+                  <Grid item>
                     <Select
-                      labelId='type'
                       value={rule.action.type}
                       onChange={(event) => 
                         dispatch({
                           id: rule.id, 
-                          target: "ACTIONTYPE", 
+                          target: 'ACTIONTYPE', 
                           actionType: event.target.value as chrome.declarativeNetRequest.RuleActionType
                         })
                       }
@@ -299,7 +351,100 @@ const Main = () => {
                   </Grid>
                 </Grid>
               </Grid>
-            </Grid>
+              {/* redirect */}
+              {/* Show only when redirect is selected */}
+              {(() => {
+                if (rule.action.type == chrome.declarativeNetRequest.RuleActionType.REDIRECT as chrome.declarativeNetRequest.RuleActionType) {
+                  return(
+                    <Grid item>
+                      <Grid container
+                        direction='row'
+                        alignItems='center'
+                        gap={2}
+                      >
+                        <Grid item xs={2}>
+                        </Grid>
+                        <Grid item xs={2}>
+                          <Typography
+                            component='h2'
+                            variant='h5'
+                          >
+                            redirect
+                          </Typography>
+                        </Grid>
+                        <Grid item>
+                          <Select
+                            value={rule.redirectType}
+                            onChange={(event) =>
+                              dispatch({
+                                id: rule.id,
+                                target: 'REDIRECTTYPE',
+                                redirectType: event.target.value as RedirectType
+                              })
+                            }
+                          >
+                            <MenuItem value='URL'>
+                              url
+                            </MenuItem>
+                            <MenuItem value='REGEXSUBSTITUTION'>
+                              regexSubstitution
+                            </MenuItem>
+                            <MenuItem value='EXTENSIONPATH'>
+                              extensionPath
+                            </MenuItem>
+                          </Select>
+                        </Grid>
+                        <Grid item>
+                          {(() => {
+                            switch (rule.redirectType) {
+                              case 'URL':
+                                return(
+                                  <TextField
+                                    value={rule.action.redirect?.url}
+                                    onChange={(event) => 
+                                        dispatch({
+                                          id: rule.id,
+                                          target: 'URL',
+                                          url: event.target.value
+                                        }) 
+                                    }
+                                  />
+                                );
+                              case 'REGEXSUBSTITUTION':
+                                return(
+                                  <TextField
+                                    value={rule.action.redirect?.regexSubstitution}
+                                    onChange={(event) => 
+                                        dispatch({
+                                          id: rule.id,
+                                          target: 'REGEXSUBSTITUTION',
+                                          regexSubstitution: event.target.value
+                                        }) 
+                                    }
+                                  />
+                                );
+                              case 'EXTENSIONPATH':
+                                return(
+                                  <TextField
+                                    value={rule.action.redirect?.extensionPath}
+                                    onChange={(event) => 
+                                        dispatch({
+                                          id: rule.id,
+                                          target: 'EXTENSIONPATH',
+                                          extensionPath: event.target.value
+                                        }) 
+                                    }
+                                  />
+                                );  
+                            }
+                          })()}
+                        </Grid>
+                      </Grid>
+                    </Grid>
+                  );
+                }
+              })()}
+              </Grid>
           </Box>
         );
       })}
@@ -316,7 +461,7 @@ const Main = () => {
             textTransform: 'none',
           }}
           onClick={() => {
-            dispatch({target: "ADDEMPTY"})
+            dispatch({target: 'ADDEMPTY'})
           }}
         >
           Add a Rule
@@ -326,7 +471,7 @@ const Main = () => {
   );
 };
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Main />
   </React.StrictMode>
