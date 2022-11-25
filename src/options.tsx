@@ -6,9 +6,10 @@ import {
   TextField, 
   Select, 
   MenuItem, 
-  Button, 
+  Button,
+  FormControl,
 } from '@mui/material';
-import React, {useState, useEffect, useReducer} from 'react';
+import React, {useState, useEffect, useReducer, ReactNode} from 'react';
 import ReactDOM from 'react-dom/client';
 import './options.css';
 
@@ -254,10 +255,10 @@ const Main = () => {
           <Box
             key={index}
             sx={{
-              p: 2,
+              padding: 2,
               border: 1,
-              borderColor: 'silver'
-            }}
+              borderColor: 'silver',
+            }}     
           >
             <Grid container
               direction='column'
@@ -267,34 +268,19 @@ const Main = () => {
               }}
             >
               {/* id */}
-              <Grid item>
-                <Typography
-                  component='h2'
-                  variant='h5'
-                >
-                  id: {rule.id}
-                </Typography>
-              </Grid>
+              <GridTypo>id: {rule.id}</GridTypo>
               {/* priority */}
               <Grid item>
-                <Grid container
-                  direction='row'
-                  alignItems='center'
-                  gap={2}
-                >
-                  <Grid item xs={2}>
-                    <Typography
-                      component='h2'
-                      variant='h5'
-                    >
-                      priority
-                    </Typography>
-                  </Grid>
+                <GridRow>
+                  <GridTypo xs={2}>priority</GridTypo>
                   <Grid item xs={2}>
                     <TextField
+                      size='small'
                       type='number'
                       value={rule.priority}
-                      InputProps={{inputProps: {min: 1}}}
+                      InputProps={{inputProps: {
+                        min: 1,
+                      }}}
                       onChange={(event) => 
                         dispatch({
                           id: rule.id, 
@@ -304,143 +290,136 @@ const Main = () => {
                       }
                     />
                   </Grid>
-                </Grid>
+                </GridRow>
               </Grid>
               {/* action */}
               <Grid item>
-                <Grid container
-                  direction='row'
-                  alignItems='center'
-                  gap={2}
-                >
-                  <Grid item xs={2}>
-                    <Typography
-                      component='h2'
-                      variant='h5'
-                    >
-                      action
-                    </Typography>
-                  </Grid>
+                <GridRow>
+                  <GridTypo xs={2}>action</GridTypo>
                   {/* type */}
-                  <Grid item xs={2}>
-                    <Typography
-                      component='h2'
-                      variant='h5'
-                    >
-                      type
-                    </Typography>
-                  </Grid>
+                  <GridTypo xs={2}>type</GridTypo>
                   <Grid item>
-                    <Select
-                      value={rule.action.type}
-                      onChange={(event) => 
-                        dispatch({
-                          id: rule.id, 
-                          target: 'ACTIONTYPE', 
-                          actionType: event.target.value as chrome.declarativeNetRequest.RuleActionType
-                        })
-                      }
-                    >
-                      <MenuItem value={chrome.declarativeNetRequest.RuleActionType.BLOCK}>
-                        block
-                      </MenuItem>
-                      <MenuItem value={chrome.declarativeNetRequest.RuleActionType.REDIRECT}>
-                        redirect
-                      </MenuItem>
-                    </Select>
+                    <FormControl size='small'>
+                      <Select
+                        value={rule.action.type}
+                        onChange={(event) => 
+                          dispatch({
+                            id: rule.id, 
+                            target: 'ACTIONTYPE', 
+                            actionType: event.target.value as chrome.declarativeNetRequest.RuleActionType
+                          })
+                        }
+                      >
+                        <MenuItem value={chrome.declarativeNetRequest.RuleActionType.BLOCK}>
+                          block
+                        </MenuItem>
+                        <MenuItem value={chrome.declarativeNetRequest.RuleActionType.REDIRECT}>
+                          redirect
+                        </MenuItem>
+                      </Select>
+                    </FormControl>
                   </Grid>
-                </Grid>
+                </GridRow>
               </Grid>
               {/* redirect */}
               {/* Show only when redirect is selected */}
               {(() => {
                 if (rule.action.type == chrome.declarativeNetRequest.RuleActionType.REDIRECT as chrome.declarativeNetRequest.RuleActionType) {
                   return(
-                    <Grid item>
-                      <Grid container
-                        direction='row'
-                        alignItems='center'
-                        gap={2}
-                      >
-                        <Grid item xs={2}>
-                        </Grid>
-                        <Grid item xs={2}>
-                          <Typography
-                            component='h2'
-                            variant='h5'
-                          >
-                            redirect
-                          </Typography>
-                        </Grid>
+                    <>
+                      <GridRow>
+                        <Grid item xs={2} />
+                        <GridTypo xs={2}>redirect</GridTypo>
                         <Grid item>
-                          <Select
-                            value={rule.redirectType}
-                            onChange={(event) =>
-                              dispatch({
-                                id: rule.id,
-                                target: 'REDIRECTTYPE',
-                                redirectType: event.target.value as RedirectType
-                              })
+                          <FormControl size='small'>
+                            <Select
+                              value={rule.redirectType}
+                              onChange={(event) =>
+                                dispatch({
+                                  id: rule.id,
+                                  target: 'REDIRECTTYPE',
+                                  redirectType: event.target.value as RedirectType
+                                })
+                              }
+                            >
+                              <MenuItem value='URL'>
+                                url
+                              </MenuItem>
+                              <MenuItem value='REGEXSUBSTITUTION'>
+                                regexSubstitution
+                              </MenuItem>
+                              <MenuItem value='EXTENSIONPATH'>
+                                extensionPath
+                              </MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                      </GridRow>
+                      <GridRow>
+                        <Grid item xs={1} />
+                        <GridTypo xs={3}>
+                          {(() => {
+                            switch (rule.redirectType) {
+                            case 'URL':
+                              return 'url';
+                            case 'REGEXSUBSTITUTION':
+                              return 'regexSubstitution';
+                            case 'EXTENSIONPATH':
+                              return 'extensionPath';
                             }
-                          >
-                            <MenuItem value='URL'>
-                              url
-                            </MenuItem>
-                            <MenuItem value='REGEXSUBSTITUTION'>
-                              regexSubstitution
-                            </MenuItem>
-                            <MenuItem value='EXTENSIONPATH'>
-                              extensionPath
-                            </MenuItem>
-                          </Select>
-                        </Grid>
-                        <Grid item>
+                          })()}
+                        </GridTypo>
+                        <Grid item xs={7}>
                           {(() => {
                             switch (rule.redirectType) {
                               case 'URL':
                                 return(
                                   <TextField
+                                    fullWidth
+                                    size='small'
                                     value={rule.action.redirect?.url}
                                     onChange={(event) => 
-                                        dispatch({
-                                          id: rule.id,
-                                          target: 'URL',
-                                          url: event.target.value
-                                        }) 
+                                      dispatch({
+                                        id: rule.id,
+                                        target: 'URL',
+                                        url: event.target.value
+                                      }) 
                                     }
                                   />
                                 );
                               case 'REGEXSUBSTITUTION':
                                 return(
                                   <TextField
+                                    fullWidth
                                     value={rule.action.redirect?.regexSubstitution}
                                     onChange={(event) => 
-                                        dispatch({
-                                          id: rule.id,
-                                          target: 'REGEXSUBSTITUTION',
-                                          regexSubstitution: event.target.value
-                                        }) 
+                                      dispatch({
+                                        id: rule.id,
+                                        target: 'REGEXSUBSTITUTION',
+                                        regexSubstitution: event.target.value
+                                      }) 
                                     }
                                   />
                                 );
                               case 'EXTENSIONPATH':
                                 return(
                                   <TextField
+                                    fullWidth
                                     value={rule.action.redirect?.extensionPath}
                                     onChange={(event) => 
-                                        dispatch({
-                                          id: rule.id,
-                                          target: 'EXTENSIONPATH',
-                                          extensionPath: event.target.value
-                                        }) 
+                                      dispatch({
+                                        id: rule.id,
+                                        target: 'EXTENSIONPATH',
+                                        extensionPath: event.target.value
+                                      }) 
                                     }
                                   />
                                 );  
                             }
                           })()}
                         </Grid>
-                      </Grid>
-                    </Grid>
+                      </GridRow>
+                    </>
                   );
                 }
               })()}
@@ -450,6 +429,7 @@ const Main = () => {
       })}
       <Box
         sx={{
+          p: 2,
           display: 'flex',
           justyfyContent: 'flex-end',
         }}
@@ -470,6 +450,42 @@ const Main = () => {
     </Container>
   );
 };
+
+const GridTypo = ({children, xs}: {children: ReactNode; xs?: number | undefined}) => {
+  if (xs) {
+    return (
+      <Grid item xs={xs}>
+        <Typography
+          variant='h6'
+        >
+          {children}
+        </Typography>
+      </Grid>
+    );
+  } else {
+    return (
+      <Grid item>
+        <Typography
+          variant='h6'
+        >
+          {children}
+        </Typography>
+      </Grid>
+    );
+  }
+}
+
+const GridRow = ({children}: {children: ReactNode}) => {
+  return (
+    <Grid container
+      direction='row'
+      alignItems='center'
+      gap={2}
+    >
+      {children}
+    </Grid>
+  );
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
