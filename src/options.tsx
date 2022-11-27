@@ -8,6 +8,7 @@ import {
   MenuItem, 
   Button,
   FormControl,
+  Hidden,
 } from '@mui/material';
 import React, {useState, useEffect, useReducer, ReactNode} from 'react';
 import ReactDOM from 'react-dom/client';
@@ -255,7 +256,8 @@ const Main = () => {
           <Box
             key={index}
             sx={{
-              padding: 2,
+              p: 2,
+              m: 2,
               border: 1,
               borderColor: 'silver',
             }}     
@@ -277,6 +279,7 @@ const Main = () => {
                     <TextField
                       size='small'
                       type='number'
+                      placeholder='priority'
                       value={rule.priority}
                       InputProps={{inputProps: {
                         min: 1,
@@ -322,7 +325,7 @@ const Main = () => {
                 </GridRow>
               </Grid>
               {/* redirect */}
-              {/* Show only when redirect is selected */}
+              {/* Display only when redirect is selected */}
               {(() => {
                 if (rule.action.type == chrome.declarativeNetRequest.RuleActionType.REDIRECT as chrome.declarativeNetRequest.RuleActionType) {
                   return(
@@ -330,8 +333,8 @@ const Main = () => {
                       <GridRow>
                         <Grid item xs={2} />
                         <GridTypo xs={2}>redirect</GridTypo>
-                        <Grid item>
-                          <FormControl size='small'>
+                        <Grid item xs={2}>
+                          <FormControl size='small' sx={{overflow: 'hidden', width: 100}}>
                             <Select
                               value={rule.redirectType}
                               onChange={(event) =>
@@ -354,22 +357,11 @@ const Main = () => {
                             </Select>
                           </FormControl>
                         </Grid>
-                      </GridRow>
-                      <GridRow>
-                        <Grid item xs={1} />
-                        <GridTypo xs={3}>
-                          {(() => {
-                            switch (rule.redirectType) {
-                            case 'URL':
-                              return 'url';
-                            case 'REGEXSUBSTITUTION':
-                              return 'regexSubstitution';
-                            case 'EXTENSIONPATH':
-                              return 'extensionPath';
-                            }
-                          })()}
-                        </GridTypo>
-                        <Grid item xs={7}>
+                        <Hidden mdUp>
+                          <Grid item xs={3}><p></p></Grid>
+                          <Grid item xs={2}><p></p></Grid>
+                        </Hidden>
+                        <Grid item xs={9} md={5}>
                           {(() => {
                             switch (rule.redirectType) {
                               case 'URL':
@@ -377,6 +369,7 @@ const Main = () => {
                                   <TextField
                                     fullWidth
                                     size='small'
+                                    placeholder='url'
                                     value={rule.action.redirect?.url}
                                     onChange={(event) => 
                                       dispatch({
@@ -391,6 +384,8 @@ const Main = () => {
                                 return(
                                   <TextField
                                     fullWidth
+                                    size='small'
+                                    placeholder='regex substitution'
                                     value={rule.action.redirect?.regexSubstitution}
                                     onChange={(event) => 
                                       dispatch({
@@ -405,6 +400,8 @@ const Main = () => {
                                 return(
                                   <TextField
                                     fullWidth
+                                    size='small'
+                                    placeholder='extension path'
                                     value={rule.action.redirect?.extensionPath}
                                     onChange={(event) => 
                                       dispatch({
@@ -414,7 +411,7 @@ const Main = () => {
                                       }) 
                                     }
                                   />
-                                );  
+                                );
                             }
                           })()}
                         </Grid>
@@ -423,7 +420,34 @@ const Main = () => {
                   );
                 }
               })()}
-              </Grid>
+              {/* condition */}
+              <GridRow>
+                <GridTypo xs={2}>condition</GridTypo>
+                <GridTypo xs={2}>domains</GridTypo>
+                <Grid item>
+                    <FormControl size='small'>
+                      <Select
+                        value={rule.condition.domainType}
+                        onChange={(event) => 
+                          dispatch({
+                            id: rule.id, 
+                            target: 'DOMAINTYPE', 
+                            domainType: event.target.value as chrome.declarativeNetRequest.DomainType ?? undefined
+                          })
+                        }
+                      >
+                        <MenuItem value=''></MenuItem>
+                        <MenuItem value={chrome.declarativeNetRequest.DomainType.FIRST_PARTY}>
+                          fitstParty
+                        </MenuItem>
+                        <MenuItem value={chrome.declarativeNetRequest.DomainType.THIRD_PARTY}>
+                          thirdParty
+                        </MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+              </GridRow>
+            </Grid>
           </Box>
         );
       })}
