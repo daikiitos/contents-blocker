@@ -270,15 +270,24 @@ const Main = () => {
               }}
             >
               {/* id */}
-              <GridTypo>id: {rule.id}</GridTypo>
+              <Grid item>
+                <GridRow>
+                  <FirstColumn>
+                    <MyTypo>id: {rule.id}</MyTypo>
+                  </FirstColumn>
+                </GridRow>
+              </Grid>
               {/* priority */}
               <Grid item>
                 <GridRow>
-                  <GridTypo xs={2}>priority</GridTypo>
-                  <Grid item xs={2}>
+                  <FirstColumn>
+                    <MyTypo>priority</MyTypo>
+                  </FirstColumn>
+                  <SecondColumn>
                     <TextField
                       size='small'
                       type='number'
+                      style={{width: 80}}
                       placeholder='priority'
                       value={rule.priority}
                       InputProps={{inputProps: {
@@ -292,16 +301,16 @@ const Main = () => {
                         })
                       }
                     />
-                  </Grid>
+                  </SecondColumn>
                 </GridRow>
               </Grid>
               {/* action */}
               <Grid item>
                 <GridRow>
-                  <GridTypo xs={2}>action</GridTypo>
+                  <FirstColumn><MyTypo>action</MyTypo></FirstColumn>
                   {/* type */}
-                  <GridTypo xs={2}>type</GridTypo>
-                  <Grid item>
+                  <SecondColumn><MyTypo>type</MyTypo></SecondColumn>
+                  <GridItem>
                     <FormControl size='small'>
                       <Select
                         value={rule.action.type}
@@ -321,7 +330,7 @@ const Main = () => {
                         </MenuItem>
                       </Select>
                     </FormControl>
-                  </Grid>
+                  </GridItem>
                 </GridRow>
               </Grid>
               {/* redirect */}
@@ -331,9 +340,9 @@ const Main = () => {
                   return(
                     <>
                       <GridRow>
-                        <Grid item xs={2} />
-                        <GridTypo xs={2}>redirect</GridTypo>
-                        <Grid item xs={2}>
+                        <FirstColumn />
+                        <SecondColumn><MyTypo>redirect</MyTypo></SecondColumn>
+                        <ThirdColumn>
                           <FormControl size='small' sx={{overflow: 'hidden', width: 100}}>
                             <Select
                               value={rule.redirectType}
@@ -356,12 +365,12 @@ const Main = () => {
                               </MenuItem>
                             </Select>
                           </FormControl>
-                        </Grid>
+                        </ThirdColumn>
                         <Hidden mdUp>
-                          <Grid item xs={3}><p></p></Grid>
-                          <Grid item xs={2}><p></p></Grid>
+                          <Grid item xs={5}><p /></Grid>
+                          <FirstColumn><p /></FirstColumn>
                         </Hidden>
-                        <Grid item xs={9} md={5}>
+                        <GridItem xs={9} md={4}>
                           {(() => {
                             switch (rule.redirectType) {
                               case 'URL':
@@ -414,7 +423,7 @@ const Main = () => {
                                 );
                             }
                           })()}
-                        </Grid>
+                        </GridItem>
                       </GridRow>
                     </>
                   );
@@ -422,12 +431,12 @@ const Main = () => {
               })()}
               {/* condition */}
               <GridRow>
-                <GridTypo xs={2}>condition</GridTypo>
-                <GridTypo xs={2}>domains</GridTypo>
-                <Grid item>
+                <FirstColumn><MyTypo>condition</MyTypo></FirstColumn>
+                <SecondColumn><MyTypo>domainType</MyTypo></SecondColumn>
+                <GridItem xs={2}>
                     <FormControl size='small'>
                       <Select
-                        value={rule.condition.domainType}
+                        value={rule.condition.domainType ?? ''}
                         onChange={(event) => 
                           dispatch({
                             id: rule.id, 
@@ -436,16 +445,16 @@ const Main = () => {
                           })
                         }
                       >
-                        <MenuItem value=''></MenuItem>
+                        <MenuItem value=''>None</MenuItem>
                         <MenuItem value={chrome.declarativeNetRequest.DomainType.FIRST_PARTY}>
-                          fitstParty
+                          firstParty
                         </MenuItem>
                         <MenuItem value={chrome.declarativeNetRequest.DomainType.THIRD_PARTY}>
                           thirdParty
                         </MenuItem>
                       </Select>
                     </FormControl>
-                  </Grid>
+                  </GridItem>
               </GridRow>
             </Grid>
           </Box>
@@ -475,31 +484,88 @@ const Main = () => {
   );
 };
 
-const GridTypo = ({children, xs}: {children: ReactNode; xs?: number | undefined}) => {
-  if (xs) {
-    return (
-      <Grid item xs={xs}>
-        <Typography
-          variant='h6'
-        >
-          {children}
-        </Typography>
-      </Grid>
-    );
-  } else {
-    return (
-      <Grid item>
-        <Typography
-          variant='h6'
-        >
-          {children}
-        </Typography>
-      </Grid>
-    );
-  }
+// const GridTypo = ({children, xs}: {children: ReactNode; xs?: number | undefined}) => {
+//   if (xs) {
+//     return (
+//       <Grid item xs={xs}>
+//         <Typography
+//           variant='h6'
+//         >
+//           {children}
+//         </Typography>
+//       </Grid>
+//     );
+//   } else {
+//     return (
+//       <Grid item>
+//         <Typography
+//           variant='h6'
+//         >
+//           {children}
+//         </Typography>
+//       </Grid>
+//     );
+//   }
+// };
+
+const MyTypo = ({children}: {children?: ReactNode | undefined}) => {
+  return (
+    <Typography
+      variant='h6'
+    >
+      {children}
+    </Typography>
+  );
 }
 
-const GridRow = ({children}: {children: ReactNode}) => {
+const FirstColumn = ({children}: {children?: ReactNode | undefined}) => {
+  return (
+    <Grid item xs={2}>
+      <Box display='flex' justifyContent='flex-end'>
+        {children}
+      </Box>
+    </Grid>
+  );
+};
+
+const SecondColumn = ({children}: {children?: ReactNode | undefined}) => {
+  return (
+    <Grid item xs={3}>
+      <Box display='flex' justifyContent='flex-end'>
+        {children}
+      </Box>
+    </Grid>
+  );
+};
+
+const ThirdColumn = ({children}: {children?: ReactNode | undefined}) => {
+  return (
+    <Grid item xs={2}>
+      <Box display='flex' justifyContent='flex-end'>
+        {children}
+      </Box>
+    </Grid>
+  );
+};
+
+const GridItem = ({children, xs, sm, md, lg, xl}: {
+  children?: ReactNode | undefined, 
+  xs?: number | undefined,
+  sm?: number | undefined,
+  md?: number | undefined,
+  lg?: number | undefined,
+  xl?: number | undefined
+}) => {
+  return (
+    <Grid item xs={xs ?? false} sm={sm ?? false} md={md ?? false} lg={lg ?? false} xl={xl ?? false}>
+      <Box display='flex' justifyContent='flex-end'>
+        {children}
+      </Box>
+    </Grid>
+  );
+};
+
+const GridRow = ({children}: {children?: ReactNode | undefined}) => {
   return (
     <Grid container
       direction='row'
@@ -509,7 +575,7 @@ const GridRow = ({children}: {children: ReactNode}) => {
       {children}
     </Grid>
   );
-}
+};
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
