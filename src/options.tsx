@@ -133,17 +133,21 @@ const reducer = (state: MyRule[], act: Action) => {
         condition: {}
       }];
     case 'REDIRECTTYPE':
-      return state.map((rule) => (
-        rule.id == act.id ? {
-          ...rule, 
-          redirectType: act.redirectType, 
-          action: {...(rule.action), redirect: {
-            ...(rule.action.redirect), 
-            url: act.redirectType == 'URL' as RedirectType ? (rule.action.redirect?.url ?? '') : undefined,
-            regexSubstitution: act.redirectType == 'REGEXSUBSTITUTION' as RedirectType ? (rule.action.redirect?.regexSubstitution ?? '') : undefined,
-            extensionPath: act.redirectType == 'EXTENSIONPATH' as RedirectType ? (rule.action.redirect?.extensionPath ?? '') : undefined,
-          }}} : rule
-      ));
+      return state.map((rule) => {
+        if (rule.id == act.id) {
+          rule.redirectType = act.redirectType;
+
+          switch (act.redirectType) {
+            case 'URL':
+              rule.action.redirect = {url: rule.action.redirect?.url ?? ''};
+            case 'REGEXSUBSTITUTION':
+              rule.action.redirect = {regexSubstitution: rule.action.redirect?.regexSubstitution ?? ''}
+            case 'EXTENSIONPATH':
+              rule.action.redirect = {extensionPath: rule.action.redirect?.extensionPath ?? ''}
+          }
+        }
+        return rule;
+      });
     case 'PRIORITY':
       return state.map((rule) => (
         rule.id == act.id ? {...rule, priority: act.priority} : rule
@@ -152,9 +156,10 @@ const reducer = (state: MyRule[], act: Action) => {
       return state.map((rule) => (
         rule.id == act.id ? {
           ...rule, 
-          action: {...(rule.action), type: act.actionType, redirect: {
-            ...(rule.action.redirect), 
-            url: act.actionType == chrome.declarativeNetRequest.RuleActionType.REDIRECT ? (rule.action.redirect?.url ?? '') : undefined
+          action: {...(rule.action), 
+            type: act.actionType, 
+            redirect: {...(rule.action.redirect), 
+              url: act.actionType == chrome.declarativeNetRequest.RuleActionType.REDIRECT ? (rule.action.redirect?.url ?? '') : undefined
           }}, 
           redirectType: act.actionType == chrome.declarativeNetRequest.RuleActionType.REDIRECT ? (rule.redirectType ?? 'URL' as RedirectType) : undefined
         } : rule
@@ -273,8 +278,11 @@ const Main = () => {
               <Grid item>
                 <GridRow>
                   <FirstColumn>
-                    <MyTypo>id: {rule.id}</MyTypo>
+                    <MyTypo>id</MyTypo>
                   </FirstColumn>
+                  <SecondColumn>
+                    <MyTypo>{rule.id}</MyTypo>
+                  </SecondColumn>
                 </GridRow>
               </Grid>
               {/* priority */}
@@ -292,12 +300,13 @@ const Main = () => {
                       value={rule.priority}
                       InputProps={{inputProps: {
                         min: 1,
+                        style: {textAlign: 'right'}
                       }}}
                       onChange={(event) => 
                         dispatch({
                           id: rule.id, 
                           target: 'PRIORITY', 
-                          priority: parseInt(event.target.value) < 1 ? 1 : parseInt(event.target.value)
+                          priority: parseInt(event.target.value) > 1 ? parseInt(event.target.value) : 1
                         })
                       }
                     />
@@ -310,7 +319,7 @@ const Main = () => {
                   <FirstColumn><MyTypo>action</MyTypo></FirstColumn>
                   {/* type */}
                   <SecondColumn><MyTypo>type</MyTypo></SecondColumn>
-                  <GridItem>
+                  <ThirdColumn>
                     <FormControl size='small'>
                       <Select
                         value={rule.action.type}
@@ -330,7 +339,7 @@ const Main = () => {
                         </MenuItem>
                       </Select>
                     </FormControl>
-                  </GridItem>
+                  </ThirdColumn>
                 </GridRow>
               </Grid>
               {/* redirect */}
@@ -367,10 +376,10 @@ const Main = () => {
                           </FormControl>
                         </ThirdColumn>
                         <Hidden mdUp>
-                          <Grid item xs={5}><p /></Grid>
-                          <FirstColumn><p /></FirstColumn>
+                          <GridItem xs={1}></GridItem>
+                          <FirstColumn></FirstColumn>
                         </Hidden>
-                        <GridItem xs={9} md={4}>
+                        <GridItem xs={9} md={6}>
                           {(() => {
                             switch (rule.redirectType) {
                               case 'URL':
@@ -379,7 +388,7 @@ const Main = () => {
                                     fullWidth
                                     size='small'
                                     placeholder='url'
-                                    value={rule.action.redirect?.url}
+                                    value={rule.action.redirect?.url ?? ''}
                                     onChange={(event) => 
                                       dispatch({
                                         id: rule.id,
@@ -395,7 +404,7 @@ const Main = () => {
                                     fullWidth
                                     size='small'
                                     placeholder='regex substitution'
-                                    value={rule.action.redirect?.regexSubstitution}
+                                    value={rule.action.redirect?.regexSubstitution ?? ''}
                                     onChange={(event) => 
                                       dispatch({
                                         id: rule.id,
@@ -411,7 +420,7 @@ const Main = () => {
                                     fullWidth
                                     size='small'
                                     placeholder='extension path'
-                                    value={rule.action.redirect?.extensionPath}
+                                    value={rule.action.redirect?.extensionPath ?? ''}
                                     onChange={(event) => 
                                       dispatch({
                                         id: rule.id,
@@ -432,29 +441,149 @@ const Main = () => {
               {/* condition */}
               <GridRow>
                 <FirstColumn><MyTypo>condition</MyTypo></FirstColumn>
+                {/* domainType */}
                 <SecondColumn><MyTypo>domainType</MyTypo></SecondColumn>
-                <GridItem xs={2}>
-                    <FormControl size='small'>
-                      <Select
-                        value={rule.condition.domainType ?? ''}
-                        onChange={(event) => 
-                          dispatch({
-                            id: rule.id, 
-                            target: 'DOMAINTYPE', 
-                            domainType: event.target.value as chrome.declarativeNetRequest.DomainType ?? undefined
-                          })
-                        }
-                      >
-                        <MenuItem value=''>None</MenuItem>
-                        <MenuItem value={chrome.declarativeNetRequest.DomainType.FIRST_PARTY}>
-                          firstParty
-                        </MenuItem>
-                        <MenuItem value={chrome.declarativeNetRequest.DomainType.THIRD_PARTY}>
-                          thirdParty
-                        </MenuItem>
-                      </Select>
-                    </FormControl>
-                  </GridItem>
+                <ThirdColumn>
+                  <FormControl size='small' sx={{overflow: 'hidden', width: 100}}>
+                    <Select
+                      value={rule.condition.domainType ?? ''}
+                      onChange={(event) => 
+                        dispatch({
+                          id: rule.id, 
+                          target: 'DOMAINTYPE', 
+                          domainType: event.target.value as chrome.declarativeNetRequest.DomainType ?? undefined
+                        })
+                      }
+                    >
+                      <MenuItem value=''>None</MenuItem>
+                      <MenuItem value={chrome.declarativeNetRequest.DomainType.FIRST_PARTY}>
+                        firstParty
+                      </MenuItem>
+                      <MenuItem value={chrome.declarativeNetRequest.DomainType.THIRD_PARTY}>
+                        thirdParty
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+                </ThirdColumn>
+              </GridRow>
+              {/* initiatorDomains */}
+              <GridRow>
+                <FirstColumn />
+                <SecondColumn>
+                  <MyTypo>initiatorDomains</MyTypo>
+                </SecondColumn>
+                <GridItem xs={5} md={8}>
+                  <TextField
+                      fullWidth
+                      multiline
+                      maxRows={2}
+                      size='small'
+                      placeholder='Enter comma delimited domains'
+                      value={rule.condition.initiatorDomains?.join(',')}
+                      onChange={(event) => 
+                        dispatch({
+                          id: rule.id,
+                          target: 'INITIATORDOMAINS',
+                          initiatorDomains: event.target.value.split(',')
+                        }) 
+                      }
+                    />
+                </GridItem>
+              </GridRow>
+              {/* excludedInitiatorDomains */}
+              <GridRow>
+                <FirstColumn />
+                <SecondColumn>
+                  <MyTypo>excluded-initiatorDomains</MyTypo>
+                </SecondColumn>
+                <GridItem xs={5} md={8}>
+                  <TextField
+                      fullWidth
+                      multiline
+                      maxRows={2}
+                      size='small'
+                      placeholder='Enter comma delimited domains'
+                      value={rule.condition.excludedInitiatorDomains?.join(',')}
+                      onChange={(event) => 
+                        dispatch({
+                          id: rule.id,
+                          target: 'EXCLUDEDINITIATORDOMAINS',
+                          excludedInitiatorDomains: event.target.value.split(',')
+                        }) 
+                      }
+                    />
+                </GridItem>
+              </GridRow>
+              {/* requestDomains */}
+              <GridRow>
+                <FirstColumn />
+                <SecondColumn>
+                  <MyTypo>requestDomains</MyTypo>
+                </SecondColumn>
+                <GridItem xs={5} md={8}>
+                  <TextField
+                      fullWidth
+                      multiline
+                      maxRows={2}
+                      size='small'
+                      placeholder='Enter comma delimited domains'
+                      value={rule.condition.requestDomains?.join(',')}
+                      onChange={(event) => 
+                        dispatch({
+                          id: rule.id,
+                          target: 'REQUESTDOMAINS',
+                          requestDomains: event.target.value.split(',')
+                        }) 
+                      }
+                    />
+                </GridItem>
+              </GridRow>
+              {/* excludedRequestDomains */}
+              <GridRow>
+                <FirstColumn />
+                <SecondColumn>
+                  <MyTypo>excluded-requestDomains</MyTypo>
+                </SecondColumn>
+                <GridItem xs={5} md={8}>
+                  <TextField
+                      fullWidth
+                      multiline
+                      maxRows={2}
+                      size='small'
+                      placeholder='Enter comma delimited domains'
+                      value={rule.condition.excludedRequestDomains?.join(',')}
+                      onChange={(event) => 
+                        dispatch({
+                          id: rule.id,
+                          target: 'EXCLUDEDREQUESTDOMAINS',
+                          excludedRequestDomains: event.target.value.split(',')
+                        }) 
+                      }
+                    />
+                </GridItem>
+              </GridRow>
+              {/* requestMethods */}
+              <GridRow>
+                <FirstColumn />
+                <SecondColumn>
+                  <MyTypo>requestMethods</MyTypo>
+                </SecondColumn>
+                <GridItem xs={5} md={8}>
+                  {/* <TextField
+                      fullWidth
+                      multiline
+                      size='small'
+                      placeholder='Enter comma delimited domains'
+                      value={rule.condition.requestMethods?.join(',')}
+                      onChange={(event) => 
+                        dispatch({
+                          id: rule.id,
+                          target: 'REQUESTMETHODS',
+                          requestMethods: event.target.value.split(',')
+                        }) 
+                      }
+                    /> */}
+                </GridItem>
               </GridRow>
             </Grid>
           </Box>
@@ -484,34 +613,11 @@ const Main = () => {
   );
 };
 
-// const GridTypo = ({children, xs}: {children: ReactNode; xs?: number | undefined}) => {
-//   if (xs) {
-//     return (
-//       <Grid item xs={xs}>
-//         <Typography
-//           variant='h6'
-//         >
-//           {children}
-//         </Typography>
-//       </Grid>
-//     );
-//   } else {
-//     return (
-//       <Grid item>
-//         <Typography
-//           variant='h6'
-//         >
-//           {children}
-//         </Typography>
-//       </Grid>
-//     );
-//   }
-// };
-
 const MyTypo = ({children}: {children?: ReactNode | undefined}) => {
   return (
     <Typography
       variant='h6'
+      sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}
     >
       {children}
     </Typography>
@@ -520,8 +626,8 @@ const MyTypo = ({children}: {children?: ReactNode | undefined}) => {
 
 const FirstColumn = ({children}: {children?: ReactNode | undefined}) => {
   return (
-    <Grid item xs={2}>
-      <Box display='flex' justifyContent='flex-end'>
+    <Grid item xs={2} md={1}>
+      <Box display='flex' justifyContent='flex-start'>
         {children}
       </Box>
     </Grid>
@@ -530,8 +636,8 @@ const FirstColumn = ({children}: {children?: ReactNode | undefined}) => {
 
 const SecondColumn = ({children}: {children?: ReactNode | undefined}) => {
   return (
-    <Grid item xs={3}>
-      <Box display='flex' justifyContent='flex-end'>
+    <Grid item xs={4} md={2}>
+      <Box display='flex' justifyContent='flex-start'>
         {children}
       </Box>
     </Grid>
@@ -540,8 +646,8 @@ const SecondColumn = ({children}: {children?: ReactNode | undefined}) => {
 
 const ThirdColumn = ({children}: {children?: ReactNode | undefined}) => {
   return (
-    <Grid item xs={2}>
-      <Box display='flex' justifyContent='flex-end'>
+    <Grid item xs={3} md={2}>
+      <Box display='flex' justifyContent='flex-start'>
         {children}
       </Box>
     </Grid>
@@ -558,7 +664,7 @@ const GridItem = ({children, xs, sm, md, lg, xl}: {
 }) => {
   return (
     <Grid item xs={xs ?? false} sm={sm ?? false} md={md ?? false} lg={lg ?? false} xl={xl ?? false}>
-      <Box display='flex' justifyContent='flex-end'>
+      <Box display='flex' justifyContent='flex-start'>
         {children}
       </Box>
     </Grid>
