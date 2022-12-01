@@ -9,6 +9,7 @@ import {
   Button,
   FormControl,
   Hidden,
+  Autocomplete,
 } from '@mui/material';
 import React, {useState, useEffect, useReducer, ReactNode} from 'react';
 import ReactDOM from 'react-dom/client';
@@ -35,12 +36,12 @@ type Action =
   {
     id: number;
     target: 'PRIORITY';
-    priority: number;
+    priority: number | undefined;
   } |
   {
     id: number;
     target: 'REDIRECTTYPE';
-    redirectType: RedirectType;
+    redirectType: RedirectType | undefined;
   } |
   {
     id: number;
@@ -50,72 +51,72 @@ type Action =
   {
     id: number;
     target: 'EXTENSIONPATH';
-    extensionPath: string;
+    extensionPath: string | undefined;
   } |
   {
     id: number;
     target: 'REGEXSUBSTITUTION';
-    regexSubstitution: string;
+    regexSubstitution: string | undefined;
   } |
   {
     id: number;
     target: 'URL';
-    url: string;
+    url: string | undefined;
   } |
   {
     id: number;
     target: 'DOMAINTYPE';
-    domainType: chrome.declarativeNetRequest.DomainType;
+    domainType: chrome.declarativeNetRequest.DomainType | undefined;
   } |
   {
     id: number;
     target: 'INITIATORDOMAINS';
-    initiatorDomains: string[];
+    initiatorDomains: string[] | undefined;
   } |
   {
     id: number;
     target: 'EXCLUDEDINITIATORDOMAINS';
-    excludedInitiatorDomains: string[];
+    excludedInitiatorDomains: string[] | undefined;
   } |
   {
     id: number;
     target: 'REQUESTDOMAINS';
-    requestDomains: string[];
+    requestDomains: string[] | undefined;
   } |
   {
     id: number;
     target: 'EXCLUDEDREQUESTDOMAINS';
-    excludedRequestDomains: string[];
+    excludedRequestDomains: string[] | undefined;
   } |
   {
     id: number;
     target: 'REQUESTMETHODS';
-    requestMethods: chrome.declarativeNetRequest.RequestMethod[];
+    requestMethods: chrome.declarativeNetRequest.RequestMethod[] | undefined;
   } |
   {
     id: number;
     target: 'EXCLUDEDREQUESTMETHODS';
-    excludedRequestMethods: chrome.declarativeNetRequest.RequestMethod[];
+    excludedRequestMethods: chrome.declarativeNetRequest.RequestMethod[] | undefined;
   } |
   {
     id: number;
     target: 'RESOURCETYPES';
-    resourceTypes: chrome.declarativeNetRequest.ResourceType[];
+    resourceTypes: chrome.declarativeNetRequest.ResourceType[] | undefined;
   } |
   {
     id: number;
     target: 'EXCLUDEDRESOURCETYPES';
-    excludedResourceTypes: chrome.declarativeNetRequest.ResourceType[];
+    excludedResourceTypes: chrome.declarativeNetRequest.ResourceType[] | undefined;
   } |
   {
     id: number;
     target: 'REGEXFILTER';
-    regexFilter: string;
+    regexFilter: string | undefined;
   } |
   {
     id: number;
     target: 'URLFILTER';
-    urlFilter: string;
+    urlFilter: string | undefined;
   } 
 ;
 
@@ -133,27 +134,19 @@ const reducer = (state: MyRule[], act: Action) => {
         condition: {}
       }];
     case 'REDIRECTTYPE':
-      return state.map((rule) => {
-        if (rule.id == act.id) {
-          rule.redirectType = act.redirectType;
-
-          switch (act.redirectType) {
-            case 'URL':
-              rule.action.redirect = {url: rule.action.redirect?.url ?? ''};
-            case 'REGEXSUBSTITUTION':
-              rule.action.redirect = {regexSubstitution: rule.action.redirect?.regexSubstitution ?? ''}
-            case 'EXTENSIONPATH':
-              rule.action.redirect = {extensionPath: rule.action.redirect?.extensionPath ?? ''}
-          }
-        }
-        return rule;
-      });
+      return state.map((rule) => 
+        rule.id == act.id ? {
+          ...rule, 
+          redirectType: act.redirectType, 
+          action: {...(rule.action), redirect: {}}
+        } : rule
+      );
     case 'PRIORITY':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, priority: act.priority} : rule
-      ));
+      );
     case 'ACTIONTYPE':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {
           ...rule, 
           action: {...(rule.action), 
@@ -163,63 +156,70 @@ const reducer = (state: MyRule[], act: Action) => {
           }}, 
           redirectType: act.actionType == chrome.declarativeNetRequest.RuleActionType.REDIRECT ? (rule.redirectType ?? 'URL' as RedirectType) : undefined
         } : rule
-      ));
+      );
     case 'EXTENSIONPATH':
-      return state.map((rule) => (
-        rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), extensionPath: act.extensionPath}}} : rule
-      ));
+      return state.map((rule) => 
+        rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), 
+          extensionPath: act.extensionPath
+        }}} : rule
+      );
     case 'REGEXSUBSTITUTION':
-      return state.map((rule) => (
-        rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), regexSubstitution: act.regexSubstitution}}} : rule
-      ));
+      return state.map((rule) => 
+        rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), 
+          regexSubstitution: act.regexSubstitution
+        }}} : rule
+      );
     case 'URL':
-      return state.map((rule) => (
-        rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), url: act.url}}} : rule
-      ));
+      return state.map((rule) => 
+        rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), 
+          url: act.url
+        }}} : rule
+      );
     case 'DOMAINTYPE':
-      return state.map((rule) => (
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), domainType: act.domainType}} : rule
-      ));
+      return state.map((rule) => 
+        rule.id == act.id 
+        ? {...rule, condition: {...(rule.condition), domainType: act.domainType}} : rule
+      );
     case 'INITIATORDOMAINS':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, condition: {...(rule.condition), initiatorDomains: act.initiatorDomains}} : rule
-      ));
+      );
     case 'EXCLUDEDINITIATORDOMAINS':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedInitiatorDomains: act.excludedInitiatorDomains}} : rule
-      ));
+      );
     case 'REQUESTDOMAINS':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, condition: {...(rule.condition), requestDomains: act.requestDomains}} : rule
-      ));
+      );
     case 'EXCLUDEDREQUESTDOMAINS':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedRequestDomains: act.excludedRequestDomains}} : rule
-      ));
+      );
     case 'REQUESTMETHODS':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, condition: {...(rule.condition), requestMethods: act.requestMethods}} : rule
-      ));
+      );
     case 'EXCLUDEDREQUESTMETHODS':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedRequestMethods: act.excludedRequestMethods}} : rule
-      ));
+      );
     case 'RESOURCETYPES':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, condition: {...(rule.condition), resourceTypes: act.resourceTypes}} : rule
-      ));
+      );
     case 'EXCLUDEDRESOURCETYPES':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedResourceTypes: act.excludedResourceTypes}} : rule
-      ));
+      );
     case 'REGEXFILTER':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, condition: {...(rule.condition), regexFilter: act.regexFilter}} : rule
-      ));
+      );
     case 'URLFILTER':
-      return state.map((rule) => (
+      return state.map((rule) => 
         rule.id == act.id ? {...rule, condition: {...(rule.condition), urlFilter: act.urlFilter}} : rule
-      ));
+      );
     default:
       return state;
   }
@@ -467,6 +467,7 @@ const Main = () => {
                 </ThirdColumn>
               </GridRow>
               {/* initiatorDomains */}
+              {/* An empty list is not allowed */}
               <GridRow>
                 <FirstColumn />
                 <SecondColumn>
@@ -484,7 +485,7 @@ const Main = () => {
                         dispatch({
                           id: rule.id,
                           target: 'INITIATORDOMAINS',
-                          initiatorDomains: event.target.value.split(',')
+                          initiatorDomains: event.target.value ? event.target.value.split(',') : undefined
                         }) 
                       }
                     />
@@ -508,13 +509,14 @@ const Main = () => {
                         dispatch({
                           id: rule.id,
                           target: 'EXCLUDEDINITIATORDOMAINS',
-                          excludedInitiatorDomains: event.target.value.split(',')
+                          excludedInitiatorDomains: event.target.value ? event.target.value.split(',') : undefined
                         }) 
                       }
                     />
                 </GridItem>
               </GridRow>
               {/* requestDomains */}
+              {/* An empty list is not allowed */}
               <GridRow>
                 <FirstColumn />
                 <SecondColumn>
@@ -532,7 +534,7 @@ const Main = () => {
                         dispatch({
                           id: rule.id,
                           target: 'REQUESTDOMAINS',
-                          requestDomains: event.target.value.split(',')
+                          requestDomains: event.target.value ? event.target.value.split(',') : undefined
                         }) 
                       }
                     />
@@ -556,35 +558,46 @@ const Main = () => {
                         dispatch({
                           id: rule.id,
                           target: 'EXCLUDEDREQUESTDOMAINS',
-                          excludedRequestDomains: event.target.value.split(',')
+                          excludedRequestDomains: event.target.value ? event.target.value.split(',') : undefined
                         }) 
                       }
                     />
                 </GridItem>
               </GridRow>
               {/* requestMethods */}
+              {/* An empty list is not allowed */}
               <GridRow>
                 <FirstColumn />
                 <SecondColumn>
                   <MyTypo>requestMethods</MyTypo>
                 </SecondColumn>
-                <GridItem xs={5} md={8}>
-                  {/* <TextField
-                      fullWidth
-                      multiline
-                      size='small'
-                      placeholder='Enter comma delimited domains'
-                      value={rule.condition.requestMethods?.join(',')}
-                      onChange={(event) => 
-                        dispatch({
-                          id: rule.id,
-                          target: 'REQUESTMETHODS',
-                          requestMethods: event.target.value.split(',')
-                        }) 
-                      }
-                    /> */}
+                <GridItem xs={5} md={7}>
+                  <Autocomplete
+                    multiple
+                    fullWidth
+                    size='small'
+                    value={rule.condition.requestMethods ?? []}
+                    onChange={(_, value) =>
+                      dispatch({
+                        id: rule.id,
+                        target: 'REQUESTMETHODS',
+                        requestMethods: value ?? undefined
+                      })
+                    }
+                    options={Object.values(chrome.declarativeNetRequest.RequestMethod)}
+                    getOptionLabel={(option) => option}
+                    renderInput={(params) => (
+                      <TextField {...params} />
+                    )} 
+                  />
                 </GridItem>
               </GridRow>
+              {/* resourceTypes */}
+              {/* An empty list is not allowed */}
+
+              {/* urlFilter */}
+              {/* An empty string is not allowed */}
+              {/* A pattern beginning with ||* is not allowed. Use * instead. */}
             </Grid>
           </Box>
         );
