@@ -10,10 +10,15 @@ import {
   FormControl,
   Hidden,
   Autocomplete,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
-import React, {useState, useEffect, useReducer, ReactNode} from 'react';
+import React, { useState, useEffect, useReducer, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import './options.css';
+
+type RedirectType = 'URL' | 'REGEXSUBSTITUTION' | 'EXTENSIONPATH';
+type FilterType = 'URLFILTER' | 'REGEXFILTER';
 
 class MyRule implements chrome.declarativeNetRequest.Rule {
   action!: chrome.declarativeNetRequest.RuleAction;
@@ -21,9 +26,8 @@ class MyRule implements chrome.declarativeNetRequest.Rule {
   id!: number;
   priority?: number | undefined;
   redirectType?: RedirectType | undefined;
+  filterType?: FilterType | undefined;
 }
-
-type RedirectType = 'URL' | 'REGEXSUBSTITUTION' | 'EXTENSIONPATH';
 
 type Action = 
   {
@@ -117,7 +121,12 @@ type Action =
     id: number;
     target: 'URLFILTER';
     urlFilter: string | undefined;
-  } 
+  } |
+  {
+    id: number;
+    target: 'FILTERTYPE';
+    filterType: FilterType | undefined;
+  }
 ;
 
 const initialState: MyRule[] = [];
@@ -125,33 +134,49 @@ const initialState: MyRule[] = [];
 const reducer = (state: MyRule[], act: Action) => {
   switch (act.target) {
     case 'ALL':
-      return act.rules;
+      return act.rules.map((rule) => {
+        if (rule.action.type == chrome.declarativeNetRequest.RuleActionType.REDIRECT) {
+          if (rule.action.redirect?.url) {
+            rule.redirectType = 'URL';
+          } else if (rule.action.redirect?.regexSubstitution) {
+            rule.redirectType = 'REGEXSUBSTITUTION';
+          } else if (rule.action.redirect?.extensionPath) {
+            rule.redirectType = 'EXTENSIONPATH';
+          }
+        }
+        if (rule.condition.urlFilter) {
+          rule.filterType = 'URLFILTER';
+        } else if (rule.condition.regexFilter) {
+          rule.filterType = 'REGEXFILTER';
+        }
+        return rule;
+      });
     case 'ADDEMPTY':
       return [...state, {
         id: state.length == 0 ? 1 : state.slice(-1)[0].id + 1,
         priority: 1,
-        action: {type: chrome.declarativeNetRequest.RuleActionType.BLOCK},
+        action: { type: chrome.declarativeNetRequest.RuleActionType.BLOCK },
         condition: {}
       }];
     case 'REDIRECTTYPE':
       return state.map((rule) => 
         rule.id == act.id ? {
           ...rule, 
-          redirectType: act.redirectType, 
-          action: {...(rule.action), redirect: {}}
+          redirectType: act.redirectType ?? undefined, 
+          action: { ...rule.action, redirect: {} }
         } : rule
       );
     case 'PRIORITY':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, priority: act.priority} : rule
+        rule.id == act.id ? { ...rule, priority: act.priority ?? undefined } : rule
       );
     case 'ACTIONTYPE':
       return state.map((rule) => 
         rule.id == act.id ? {
           ...rule, 
-          action: {...(rule.action), 
+          action: { ...rule.action, 
             type: act.actionType, 
-            redirect: {...(rule.action.redirect), 
+            redirect: { ...rule.action.redirect, 
               url: act.actionType == chrome.declarativeNetRequest.RuleActionType.REDIRECT ? (rule.action.redirect?.url ?? '') : undefined
           }}, 
           redirectType: act.actionType == chrome.declarativeNetRequest.RuleActionType.REDIRECT ? (rule.redirectType ?? 'URL' as RedirectType) : undefined
@@ -159,77 +184,116 @@ const reducer = (state: MyRule[], act: Action) => {
       );
     case 'EXTENSIONPATH':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), 
-          extensionPath: act.extensionPath
+        rule.id == act.id ? {...rule, action: { ...rule.action, redirect: { ...rule.action.redirect, 
+          extensionPath: act.extensionPath ?? undefined
         }}} : rule
       );
     case 'REGEXSUBSTITUTION':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), 
-          regexSubstitution: act.regexSubstitution
+        rule.id == act.id ? { ...rule, action: { ...rule.action, redirect: { ...rule.action.redirect, 
+          regexSubstitution: act.regexSubstitution ?? undefined
         }}} : rule
       );
     case 'URL':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, action: {...(rule.action), redirect: {...(rule.action.redirect), 
-          url: act.url
+        rule.id == act.id ? { ...rule, action: { ...rule.action, redirect: { ...rule.action.redirect, 
+          url: act.url ?? undefined
         }}} : rule
       );
     case 'DOMAINTYPE':
       return state.map((rule) => 
         rule.id == act.id 
-        ? {...rule, condition: {...(rule.condition), domainType: act.domainType}} : rule
+        ? {...rule, condition: { ...rule.condition, 
+          domainType: act.domainType ?? undefined
+        }} : rule
       );
     case 'INITIATORDOMAINS':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), initiatorDomains: act.initiatorDomains}} : rule
+        rule.id == act.id ? { ...rule, condition: { ...rule.condition, 
+          initiatorDomains: act.initiatorDomains?.length ? act.initiatorDomains : undefined
+        }} : rule
       );
     case 'EXCLUDEDINITIATORDOMAINS':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedInitiatorDomains: act.excludedInitiatorDomains}} : rule
+        rule.id == act.id ? {...rule, condition: { ...rule.condition, 
+          excludedInitiatorDomains: act.excludedInitiatorDomains?.length ? act.excludedInitiatorDomains : undefined
+        }} : rule
       );
     case 'REQUESTDOMAINS':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), requestDomains: act.requestDomains}} : rule
+        rule.id == act.id ? { ...rule, condition: { ...rule.condition, 
+          requestDomains: act.requestDomains?.length ? act.requestDomains : undefined
+        }} : rule
       );
     case 'EXCLUDEDREQUESTDOMAINS':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedRequestDomains: act.excludedRequestDomains}} : rule
+        rule.id == act.id ? { ...rule, condition: { ...rule.condition, 
+          excludedRequestDomains: act.excludedRequestDomains?.length ? act.excludedRequestDomains : undefined
+        }} : rule
       );
     case 'REQUESTMETHODS':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), requestMethods: act.requestMethods}} : rule
+        rule.id == act.id ? { ...rule, condition: { ...rule.condition, 
+          requestMethods: act.requestMethods?.length ? act.requestMethods : undefined
+        }} : rule
       );
     case 'EXCLUDEDREQUESTMETHODS':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedRequestMethods: act.excludedRequestMethods}} : rule
+        rule.id == act.id ? { ...rule, condition: { ...rule.condition, 
+          excludedRequestMethods: act.excludedRequestMethods?.length ? act.excludedRequestMethods : undefined
+        }} : rule
       );
     case 'RESOURCETYPES':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), resourceTypes: act.resourceTypes}} : rule
+        rule.id == act.id ? { ...rule, condition: { ...rule.condition, 
+          resourceTypes: act.resourceTypes?.length ? act.resourceTypes : undefined
+        }} : rule
       );
     case 'EXCLUDEDRESOURCETYPES':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), excludedResourceTypes: act.excludedResourceTypes}} : rule
+        rule.id == act.id ? { ...rule, condition: { ...rule.condition, 
+          excludedResourceTypes: act.excludedResourceTypes?.length ? act.excludedResourceTypes : undefined
+        }} : rule
       );
     case 'REGEXFILTER':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), regexFilter: act.regexFilter}} : rule
+        rule.id == act.id ? { ...rule, condition: { ...rule.condition, 
+          regexFilter: act.regexFilter ?? undefined, 
+          urlFilter: undefined
+        }} : rule
       );
     case 'URLFILTER':
       return state.map((rule) => 
-        rule.id == act.id ? {...rule, condition: {...(rule.condition), urlFilter: act.urlFilter}} : rule
+        rule.id == act.id ? { ...rule, condition: { ...rule.condition, 
+          urlFilter: act.urlFilter ?? undefined, 
+          regexFilter: undefined
+        }} : rule
+      );
+    case 'FILTERTYPE':
+      return state.map((rule) =>
+        rule.id == act.id ? { ...rule, 
+          filterType: act.filterType ?? undefined,
+          condition: { ...rule.condition, 
+            urlFilter: undefined,
+            regexFilter: undefined
+          }
+        } : rule
       );
     default:
       return state;
   }
 };
 
+type Status = {
+  status: 'SUCCESSED' | 'ERROR' | undefined;
+  message: string | undefined;
+}
+
 const Main = () => {
   // action, condition, id, priority?
   // const [ruleState, setRuleState] = useState<MyRule[]>([]);
   const [ruleState, dispatch] = useReducer(reducer, initialState);
-  const [status, setStatus] = useState<string>('');
+  const [status, setStatus] = useState<Status[]>([]);
 
   useEffect(() => {
     chrome.declarativeNetRequest.getDynamicRules(rules => {
@@ -242,13 +306,17 @@ const Main = () => {
     chrome.declarativeNetRequest.updateDynamicRules(
       {
         removeRuleIds: ruleState.map(rule => rule.id),
-        addRules: ruleState
+        addRules: ruleState.map(rule => {
+          const { redirectType, filterType, ...rest } = rule;
+          return rest;
+        })
       },
       () => {
         if (chrome.runtime.lastError) {
-          setStatus(chrome.runtime.lastError.message!);
+          setStatus([{ status: 'ERROR', message: chrome.runtime.lastError.message! }, ...status]);
         } else {
-          setStatus('Rules updated.');
+          setStatus([{ status: 'SUCCESSED', message: 'Rules updated.' }, ...status]);
+          console.table(ruleState);
         }
       }
     );
@@ -571,7 +639,7 @@ const Main = () => {
                 <SecondColumn>
                   <MyTypo>requestMethods</MyTypo>
                 </SecondColumn>
-                <GridItem xs={5} md={7}>
+                <GridItem xs={5} md={8}>
                   <Autocomplete
                     multiple
                     fullWidth
@@ -594,34 +662,182 @@ const Main = () => {
               </GridRow>
               {/* resourceTypes */}
               {/* An empty list is not allowed */}
-
+              <GridRow>
+                <FirstColumn />
+                <SecondColumn>
+                  <MyTypo>resourceTypes</MyTypo>
+                </SecondColumn>
+                <GridItem xs={5} md={8}>
+                  <Autocomplete
+                    multiple
+                    fullWidth
+                    size='small'
+                    value={rule.condition.resourceTypes ?? undefined}
+                    onChange={(_, value) =>
+                      dispatch({
+                        id: rule.id,
+                        target: 'RESOURCETYPES',
+                        resourceTypes: value ?? undefined
+                      })
+                    }
+                    options={Object.values(chrome.declarativeNetRequest.ResourceType)}
+                    getOptionLabel={(option) => option}
+                    renderInput={(params) => (
+                      <TextField {...params} />
+                    )} 
+                  />
+                </GridItem>
+              </GridRow>
+              {/* excludedResourceTypes */}
+              <GridRow>
+                <FirstColumn />
+                <SecondColumn>
+                  <MyTypo>excludedResourceTypes</MyTypo>
+                </SecondColumn>
+                <GridItem xs={5} md={8}>
+                  <Autocomplete
+                    multiple
+                    fullWidth
+                    size='small'
+                    value={rule.condition.excludedResourceTypes ?? []}
+                    onChange={(_, value) =>
+                      dispatch({
+                        id: rule.id,
+                        target: 'EXCLUDEDRESOURCETYPES',
+                        excludedResourceTypes: value ?? undefined
+                      })
+                    }
+                    options={Object.values(chrome.declarativeNetRequest.ResourceType)}
+                    getOptionLabel={(option) => option}
+                    renderInput={(params) => (
+                      <TextField {...params} />
+                    )} 
+                  />
+                </GridItem>
+              </GridRow>
               {/* urlFilter */}
               {/* An empty string is not allowed */}
               {/* A pattern beginning with ||* is not allowed. Use * instead. */}
+              {/* regexFilter */}
+              <GridRow>
+                <FirstColumn />
+                <SecondColumn>
+                  <FormControl size='small' sx={{overflow: 'hidden', width: 150}}>
+                    <Select
+                      value={rule.filterType}
+                      onChange={(event) =>
+                        dispatch({
+                          id: rule.id,
+                          target: 'FILTERTYPE',
+                          filterType: event.target.value as FilterType
+                        })
+                      }
+                    >
+                      <MenuItem value='URLFILTER'>
+                        urlFilter
+                      </MenuItem>
+                      <MenuItem value='REGEXFILTER'>
+                        regexFilter
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+                </SecondColumn>
+                <GridItem xs={5} md={8}>
+                  {(() => {
+                    switch (rule.filterType) {
+                      case 'URLFILTER':
+                        return(
+                          <TextField
+                            fullWidth
+                            size='small'
+                            value={rule.condition.urlFilter ?? ''}
+                            onChange={(event) => 
+                              dispatch({
+                                id: rule.id,
+                                target: 'URLFILTER',
+                                urlFilter: event.target.value
+                              }) 
+                            }
+                          />);
+                        case 'REGEXFILTER':
+                          return(
+                            <TextField
+                              fullWidth
+                              size='small'
+                              value={rule.condition.regexFilter ?? ''}
+                              onChange={(event) => 
+                                dispatch({
+                                  id: rule.id,
+                                  target: 'REGEXFILTER',
+                                  regexFilter: event.target.value
+                                }) 
+                              }
+                            />
+                          );
+                    }
+                  })()}
+                </GridItem>
+              </GridRow>
             </Grid>
           </Box>
         );
       })}
-      <Box
-        sx={{
-          p: 2,
-          display: 'flex',
-          justyfyContent: 'flex-end',
-        }}
+      <Grid container
+        direction='column'
+        alignItems='center'
+        gap={1}
       >
-        <div style={{ flexGrow: 1 }}/>
-        <Button
-          variant='outlined'
-          sx={{
-            textTransform: 'none',
-          }}
-          onClick={() => {
-            dispatch({target: 'ADDEMPTY'})
-          }}
-        >
-          Add a Rule
-        </Button>
-      </Box>
+        {status.map((st, index) => {
+          return (
+            <Grid item
+              key={index}
+            >
+              <Alert 
+                severity={st.status == 'SUCCESSED' ? 'success' : 'error'}
+                onClose={() => {
+                  setStatus(status.filter((_, i) => i != index))
+                }}
+              >
+                <AlertTitle>{st.status}</AlertTitle>
+                  {st.message}
+              </Alert>
+            </Grid>
+          );
+        })}
+      </Grid>
+      <Grid container
+        direction='row'
+        alignItems='center'
+        justifyContent='flex-end'
+        gap={2}
+      >
+        <Grid item>
+          <Button
+            variant='outlined'
+            sx={{
+              textTransform: 'none',
+            }}
+            onClick={() => {
+              dispatch({target: 'ADDEMPTY'})
+            }}
+          >
+            Add a Rule
+          </Button>
+        </Grid>
+        <Grid item>
+          <Button
+            variant='outlined'
+            sx={{
+              textTransform: 'none',
+            }}
+            onClick={() => {
+              upDateRules()
+            }}
+          >
+            Save Rules
+          </Button>
+        </Grid>
+      </Grid>
     </Container>
   );
 };
