@@ -12,6 +12,10 @@ import {
   Autocomplete,
   Alert,
   AlertTitle,
+  Dialog,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import React, { useState, useEffect, useReducer, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
@@ -33,6 +37,10 @@ type Action =
   {
     target: 'ALL';
     rules: MyRule[];
+  } |
+  {
+    id: number;
+    target: 'DELETE';
   } |
   {
     target: 'ADDEMPTY';
@@ -151,6 +159,8 @@ const reducer = (state: MyRule[], act: Action) => {
         }
         return rule;
       });
+    case 'DELETE':
+      return state.filter(rule => rule.id != act.id);
     case 'ADDEMPTY':
       return [...state, {
         id: state.length == 0 ? 1 : state.slice(-1)[0].id + 1,
@@ -294,11 +304,12 @@ const Main = () => {
   // const [ruleState, setRuleState] = useState<MyRule[]>([]);
   const [ruleState, dispatch] = useReducer(reducer, initialState);
   const [status, setStatus] = useState<Status[]>([]);
+  const [open, setOpen] = useState<boolean>(false);
 
   useEffect(() => {
     chrome.declarativeNetRequest.getDynamicRules(rules => {
       // Set state
-      dispatch({target: 'ALL', rules: rules});
+      dispatch({ target: 'ALL', rules: rules });
     });
   }, []);
 
@@ -321,6 +332,32 @@ const Main = () => {
       }
     );
   };
+
+  const deleteRule = (id: number) => {
+    chrome.declarativeNetRequest.updateDynamicRules(
+      {
+        removeRuleIds: [id]
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          setStatus([{ status: 'ERROR', message: chrome.runtime.lastError.message! }, ...status]);
+        } else {
+          dispatch({ id: id, target: 'DELETE' });
+          setStatus([{ status: 'SUCCESSED', message: 'The rule was successfully deleted' }, ...status]);
+          console.table(ruleState);
+        }
+      }
+    );
+  };
+
+  const handleOpen = () => {
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  }
+
 
   return (
     <Container>
@@ -351,6 +388,25 @@ const Main = () => {
                   <SecondColumn>
                     <MyTypo>{rule.id}</MyTypo>
                   </SecondColumn>
+                  <Grid item xs={5} md={7}>
+                    <Box
+                      display='flex'
+                      justifyContent='flex-end'                    
+                    >
+                      <Button
+                        variant='outlined'
+                        sx={{ textTransform: 'none' }}
+                        onClick={handleOpen}
+                      >
+                        Delete
+                      </Button>
+                    </Box>
+                    <DeleteDialog
+                      isOpen={open}
+                      onClose={handleClose}
+                      onDelete={() => deleteRule(rule.id)}
+                    />
+                  </Grid>
                 </GridRow>
               </Grid>
               {/* priority */}
@@ -363,12 +419,12 @@ const Main = () => {
                     <TextField
                       size='small'
                       type='number'
-                      style={{width: 80}}
+                      style={{ width: 80 }}
                       placeholder='priority'
                       value={rule.priority}
-                      InputProps={{inputProps: {
+                      InputProps={{ inputProps: {
                         min: 1,
-                        style: {textAlign: 'right'}
+                        style: { textAlign: 'right' }
                       }}}
                       onChange={(event) => 
                         dispatch({
@@ -420,7 +476,7 @@ const Main = () => {
                         <FirstColumn />
                         <SecondColumn><MyTypo>redirect</MyTypo></SecondColumn>
                         <ThirdColumn>
-                          <FormControl size='small' sx={{overflow: 'hidden', width: 100}}>
+                          <FormControl size='small' sx={{ overflow: 'hidden', width: 100 }}>
                             <Select
                               value={rule.redirectType}
                               onChange={(event) =>
@@ -512,7 +568,7 @@ const Main = () => {
                 {/* domainType */}
                 <SecondColumn><MyTypo>domainType</MyTypo></SecondColumn>
                 <ThirdColumn>
-                  <FormControl size='small' sx={{overflow: 'hidden', width: 100}}>
+                  <FormControl size='small' sx={{ overflow: 'hidden', width: 100 }}>
                     <Select
                       value={rule.condition.domainType ?? ''}
                       onChange={(event) => 
@@ -722,17 +778,20 @@ const Main = () => {
               <GridRow>
                 <FirstColumn />
                 <SecondColumn>
-                  <FormControl size='small' sx={{overflow: 'hidden', width: 150}}>
+                  <FormControl size='small' sx={{ overflow: 'hidden', width: 150 }}>
                     <Select
-                      value={rule.filterType}
+                      value={rule.filterType ?? ''}
                       onChange={(event) =>
                         dispatch({
                           id: rule.id,
                           target: 'FILTERTYPE',
-                          filterType: event.target.value as FilterType
+                          filterType: event.target.value as FilterType ?? undefined
                         })
                       }
                     >
+                      <MenuItem value=''>
+                        None
+                      </MenuItem>
                       <MenuItem value='URLFILTER'>
                         urlFilter
                       </MenuItem>
@@ -756,7 +815,7 @@ const Main = () => {
                                 id: rule.id,
                                 target: 'URLFILTER',
                                 urlFilter: event.target.value
-                              }) 
+                              })
                             }
                           />);
                         case 'REGEXFILTER':
@@ -770,7 +829,7 @@ const Main = () => {
                                   id: rule.id,
                                   target: 'REGEXFILTER',
                                   regexFilter: event.target.value
-                                }) 
+                                })
                               }
                             />
                           );
@@ -794,9 +853,7 @@ const Main = () => {
             >
               <Alert 
                 severity={st.status == 'SUCCESSED' ? 'success' : 'error'}
-                onClose={() => {
-                  setStatus(status.filter((_, i) => i != index))
-                }}
+                onClose={() => setStatus(status.filter((_, i) => i != index))}
               >
                 <AlertTitle>{st.status}</AlertTitle>
                   {st.message}
@@ -814,12 +871,8 @@ const Main = () => {
         <Grid item>
           <Button
             variant='outlined'
-            sx={{
-              textTransform: 'none',
-            }}
-            onClick={() => {
-              dispatch({target: 'ADDEMPTY'})
-            }}
+            sx={{ textTransform: 'none' }}
+            onClick={() => dispatch({ target: 'ADDEMPTY' })}
           >
             Add a Rule
           </Button>
@@ -827,12 +880,8 @@ const Main = () => {
         <Grid item>
           <Button
             variant='outlined'
-            sx={{
-              textTransform: 'none',
-            }}
-            onClick={() => {
-              upDateRules()
-            }}
+            sx={{ textTransform: 'none' }}
+            onClick={upDateRules}
           >
             Save Rules
           </Button>
@@ -842,16 +891,37 @@ const Main = () => {
   );
 };
 
+const DeleteDialog = ({isOpen, onClose, onDelete}: {
+  isOpen: boolean,
+  onClose: () => void,
+  onDelete: () => void
+}) => {
+  return (
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+    >
+      <DialogContent>
+        <DialogContentText>Do you really want to delete the rule?</DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={() => { onClose(); onDelete(); }} autoFocus>OK</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 const MyTypo = ({children}: {children?: ReactNode | undefined}) => {
   return (
     <Typography
       variant='h6'
-      sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}
+      sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
     >
       {children}
     </Typography>
   );
-}
+};
 
 const FirstColumn = ({children}: {children?: ReactNode | undefined}) => {
   return (
